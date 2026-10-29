@@ -1,0 +1,19 @@
+# Compiled C executables
+/client
+/registry
+/server
+/ftp_server
+
+# Python cache files
+__pycache__/
+*.py[cod]
+
+# Temporary Xterm logs
+/Xterm.log.*
+/xterm.*.xhtml
+/xterm.*.svg
+
+# Local virtual environments
+.venv/
+venv/
+osken-env/
