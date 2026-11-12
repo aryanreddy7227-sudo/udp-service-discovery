@@ -210,172 +210,124 @@ cd ~/udp-service-discovery
 
 ---
 
-## 6. Compile the C programs
+## 6. Compile the C programs (without Make)
 
-Run these commands from the project root, `~/udp-service-discovery`:
-
-The repository includes a root-level `Makefile` covering the C programs and the main/alternative Mininet and OS-Ken workflows.
-
-Build all four C executables:
+Open a VS Code terminal using **Ubuntu / WSL**, then enter the project directory:
 
 ```bash
-make
+cd ~/udp-service-discovery
 ```
 
-Build and check the maintained Python topology/controller files:
+Compile the four C programs directly with GCC:
 
 ```bash
-make check
+gcc -Wall -Wextra -std=c11 -D_DEFAULT_SOURCE registry.c -o registry
+gcc -Wall -Wextra -std=c11 -D_DEFAULT_SOURCE server.c -o server
+gcc -Wall -Wextra -std=c11 -D_DEFAULT_SOURCE ftp_server.c -o ftp_server
+gcc -Wall -Wextra -std=c11 -D_DEFAULT_SOURCE client.c -o client
 ```
 
-See every available target:
+Confirm that the executables were created:
 
 ```bash
-make help
+ls -l registry server ftp_server client
 ```
 
-Remove generated C binaries and Python cache folders:
+To check the Python files for syntax errors:
 
 ```bash
-make clean
+python3 -m py_compile topology.py topology_star_backup.py controller_backup.py member2/sdn_topology.py member2/sdn_controller.py member2/run_sdn_controller.py member2/topology_controller.py member2/run_topology_controller.py
 ```
 
-The Makefile also provides launch targets; use separate terminals because these processes must run concurrently:
+These are direct GCC and Python commands. They do not use `make`.
 
-| Terminal | Command | What it starts |
-|---|---|---|
-| 1 | `make controller` | Main OS-Ken controller from `member2/` |
-| 2 | `make topology` | Main four-host/four-switch Mininet topology |
-| 3 | `make registry-run` | UDP registry inside h1 |
-| 4 | `make http` | HTTP service agent inside h2 |
-| 5 | `make ftp` | FTP service agent inside h3 |
-| 6 | `make discover SERVICE=HTTP` | Client discovery request from h4 |
-| 6 | `make discover SERVICE=FTP` | FTP discovery request from h4 |
-
-Run all commands from the repository root. Start the controller before Mininet, and start the registry before the service agents. The Makefile assumes the OS-Ken virtual environment is at `~/osken-env`; override it with `make controller OSKEN_ENV=/path/to/venv` if yours is elsewhere.
-
-Additional targets for the other topology/controller experiments are listed by `make help`.
-
----
 
 ## 7. Start the system
 
-Start the controller and Mininet before launching the service programs. Use separate terminal windows for the following processes.
+Use **separate VS Code terminal windows**, all opened in Ubuntu / WSL. Keep each foreground process running in its own terminal.
 
-### Terminal 1 — Start the OS-Ken SDN controller
-
-From the project root, you can use the Makefile target:
+### Terminal 1 — Start the OS-Ken controller
 
 ```bash
-make controller
+cd ~/udp-service-discovery/member2
+~/osken-env/bin/python run_sdn_controller.py
 ```
 
-This activates `~/osken-env` and starts the controller. Leave this terminal running.
-
-Manual equivalent:
-
-```bash
-cd member2
-source ~/osken-env/bin/activate
-python run_sdn_controller.py
-```
-
-Leave this terminal running. The controller listens for OpenFlow switch connections on TCP port `6653`.
+If your OS-Ken virtual environment is elsewhere, replace `~/osken-env/bin/python` with the Python executable inside that environment. Leave this terminal running.
 
 ### Terminal 2 — Start the Mininet topology
 
-Open a second terminal:
+Open another Ubuntu / WSL terminal:
 
 ```bash
 cd ~/udp-service-discovery
-make topology
+sudo mn --custom member2/sdn_topology.py --topo sdnservice --controller=remote,ip=127.0.0.1,port=6653 --switch ovsk,protocols=OpenFlow13
 ```
 
-Keep the Mininet CLI open. Wait for all four switches to connect and for the controller to print their configuration messages.
+Wait for the `mininet>` prompt. Keep this terminal open.
 
-> If the controller and Mininet are running in different environments, use the controller machine's reachable IP address instead of the automatically detected WSL IP.
-
-### Terminal 3 — Start the registry inside h1
-
-Open another terminal:
+### Terminal 3 — Start the registry in h1
 
 ```bash
 cd ~/udp-service-discovery
-make registry-run
+sudo mnexec -a "$(pgrep -f 'mininet:h1' | head -n 1)" ./registry
 ```
 
-Expected startup messages:
-
-```text
-[REGISTRY] UDP socket created.
-[REGISTRY] Listening on UDP port 5000...
-```
-
-### Terminal 4 — Start the HTTP service agent inside h2
+### Terminal 4 — Start the HTTP agent in h2
 
 ```bash
 cd ~/udp-service-discovery
-make http
+sudo mnexec -a "$(pgrep -f 'mininet:h2' | head -n 1)" ./server
 ```
 
-The agent registers `HTTP` at `10.0.0.3:8080`, receives the registry acknowledgement, and sends heartbeats every 5 seconds.
-
-### Terminal 5 — Start the FTP service agent inside h3
+### Terminal 5 — Start the FTP agent in h3
 
 ```bash
 cd ~/udp-service-discovery
-make ftp
+sudo mnexec -a "$(pgrep -f 'mininet:h3' | head -n 1)" ./ftp_server
 ```
 
-The agent registers `FTP` at `10.0.0.4:2121`, receives the registry acknowledgement, and sends heartbeats every 5 seconds.
-
-### Terminal 6 — Client commands from h4
+### Terminal 6 — Run the client from h4
 
 Discover HTTP:
 
 ```bash
-make discover SERVICE=HTTP
+cd ~/udp-service-discovery
+sudo mnexec -a "$(pgrep -f 'mininet:h4' | head -n 1)" ./client HTTP
 ```
 
 Discover FTP:
 
 ```bash
-make discover SERVICE=FTP
+sudo mnexec -a "$(pgrep -f 'mininet:h4' | head -n 1)" ./client FTP
 ```
 
-A successful response has this format:
+**Start in this order:** controller, Mininet, registry, HTTP/FTP agents, then client. All commands above avoid Make targets.
+
+
+## 8. Test service discovery
+
+In the Mininet CLI (`mininet>`), check connectivity:
+
+```text
+pingall
+```
+
+From a separate Ubuntu / WSL terminal, run the client inside h4:
+
+```bash
+cd ~/udp-service-discovery
+sudo mnexec -a "$(pgrep -f 'mininet:h4' | head -n 1)" ./client HTTP
+sudo mnexec -a "$(pgrep -f 'mininet:h4' | head -n 1)" ./client FTP
+```
+
+Expected service responses:
 
 ```text
 SERVICE|HTTP|10.0.0.3|8080
 SERVICE|FTP|10.0.0.4|2121
 ```
 
----
-
-## 8. Test service discovery
-
-First, confirm basic connectivity from the Mininet CLI:
-
-```text
-pingall
-```
-
-Expected result when all links are up:
-
-```text
-0% dropped (12/12 received)
-```
-
-Then run the client commands from Terminal 6:
-
-```bash
-sudo mnexec -a $(pgrep -f "mininet:h4") $HOME/udp-service-discovery/client HTTP
-sudo mnexec -a $(pgrep -f "mininet:h4") $HOME/udp-service-discovery/client FTP
-```
-
-The registry should respond with the matching service name, IP address and port.
-
----
 
 ## 9. Test service failure detection
 
@@ -383,11 +335,11 @@ This test demonstrates **service failure**, not a network-link failure.
 
 1. Stop the FTP agent by pressing `Ctrl+C` in Terminal 5.
 2. Wait for more than the registry's 10-second heartbeat timeout.
-3. The registry should print a timeout message for FTP.
-4. Run the FTP discovery command again:
+3. Run the FTP discovery command from an Ubuntu / WSL terminal:
 
 ```bash
-sudo mnexec -a $(pgrep -f "mininet:h4") $HOME/udp-service-discovery/client FTP
+cd ~/udp-service-discovery
+sudo mnexec -a "$(pgrep -f 'mininet:h4' | head -n 1)" ./client FTP
 ```
 
 Expected client response:
@@ -396,11 +348,8 @@ Expected client response:
 [CLIENT] Received: SERVICE_NOT_FOUND
 ```
 
-The FTP agent stops sending heartbeats when it exits. The registry marks FTP inactive after the timeout, so later discovery requests return `SERVICE_NOT_FOUND`.
+The registry marks FTP inactive after the heartbeat timeout. To restart it, run the FTP agent command from Terminal 5 in Section 7 again.
 
-Restart the FTP agent using the Terminal 5 command in [Section 7](#7-start-the-system). The agent will register again.
-
----
 
 ## 10. Test SDN link failure and backup routing
 
@@ -550,36 +499,9 @@ The main end-to-end instructions in this README use `member2/sdn_topology.py`, `
 PES University — UDP-Based Service Discovery System with SDN
 
 
+
 ---
 
-## One-command demo launcher
+## 16. Optional demo launcher
 
-For the main integrated UDP + SDN demonstration, you can now start the C programs,
-OS-Ken controller, Mininet topology, registry, and both service agents with one command.
-Run it from the repository root:
-
-```bash
-sudo env OSKEN_PYTHON="$HOME/osken-env/bin/python" python3 demo.py
-```
-
-The script compiles the C programs, starts the controller and Mininet network,
-launches the registry in h1 and the HTTP/FTP agents in h2/h3, then opens the
-Mininet CLI. At the `mininet>` prompt, run:
-
-```text
-h4 ./client HTTP
-h4 ./client FTP
-pingall
-link s2 s3 down
-link s2 s3 up
-```
-
-Use `exit` to stop the Mininet network and the processes started by the script.
-Component logs are written to `demo-logs/`. If Mininet reports stale state after
-an interrupted run, execute `sudo mn -c`.
-
-**Prerequisites:** Mininet and Open vSwitch must be installed, and OS-Ken must be
-available in `~/osken-env`. If your OS-Ken virtual environment is elsewhere,
-replace the path in `OSKEN_PYTHON`. This launcher runs the main integrated
-implementation in `member2/`; it does not launch every archived/experimental
-backup controller and topology simultaneously.
+The optional `demo.py` launcher currently runs `make build` internally. If Make is unavailable or does not work in your VS Code terminal, use the direct GCC and terminal-by-terminal commands in Sections 6 and 7 instead. The manual procedure above does not depend on Make.
