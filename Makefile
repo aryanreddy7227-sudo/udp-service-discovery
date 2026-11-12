@@ -1,4 +1,4 @@
-.PHONY: all clean help controller topology registry http ftp client cleanup
+.PHONY: all clean help controller topology registry-run http ftp discover cleanup
 
 CC := gcc
 CFLAGS := -Wall -Wextra -std=c11 -D_DEFAULT_SOURCE
@@ -28,29 +28,29 @@ clean:
 	rm -f $(PROGRAMS)
 
 help:
-	@echo "Build:       make"
-	@echo "Clean:       make clean"
-	@echo "Controller:  make controller"
-	@echo "Mininet:     make topology"
-	@echo "Registry:    make registry-run"
-	@echo "HTTP agent:  make http"
-	@echo "FTP agent:   make ftp"
-	@echo "Client:      make client SERVICE=HTTP   (or SERVICE=FTP)"
-	@echo "Cleanup:     make cleanup"
+	@echo "Build all C programs: make"
+	@echo "Clean binaries:       make clean"
+	@echo "Start controller:     make controller"
+	@echo "Start Mininet:        make topology"
+	@echo "Start registry:       make registry-run"
+	@echo "Start HTTP agent:     make http"
+	@echo "Start FTP agent:      make ftp"
+	@echo "Discover a service:   make discover SERVICE=HTTP (or FTP)"
+	@echo "Clean Mininet:        make cleanup"
 	@echo ""
-	@echo "Run controller and Mininet in separate terminals."
-	@echo "Start the controller first, then run 'make topology'."
+	@echo "Keep the controller and Mininet running in separate terminals."
+	@echo "Start the controller first, then start the topology."
 
-# Run this in Terminal 1. Keep it open.
+# Run in Terminal 1 and leave it running.
 controller:
 	cd $(SDN_DIR) && . $(OSKEN_ENV)/bin/activate && python run_sdn_controller.py
 
-# Run this in Terminal 2 after the controller has started.
+# Run in Terminal 2 after the controller has started.
 topology:
 	@echo "Using controller IP: $(CTRL_IP)"
 	cd $(SDN_DIR) && sudo mn --custom sdn_topology.py --topo sdnservice --controller=remote,ip=$(CTRL_IP),port=6653 --switch ovsk,protocols=OpenFlow13
 
-# The following targets launch each C program inside its Mininet host namespace.
+# Launch each C program inside its corresponding Mininet host namespace.
 registry-run: registry
 	sudo mnexec -a "$$(pgrep -f 'mininet:h1' | head -n 1)" $(ROOT)/registry
 
@@ -60,7 +60,7 @@ http: server
 ftp: ftp_server
 	sudo mnexec -a "$$(pgrep -f 'mininet:h3' | head -n 1)" $(ROOT)/ftp_server
 
-client: client
+discover: client
 	sudo mnexec -a "$$(pgrep -f 'mininet:h4' | head -n 1)" $(ROOT)/client $(SERVICE)
 
 cleanup:
