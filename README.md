@@ -548,3 +548,38 @@ The main end-to-end instructions in this README use `member2/sdn_topology.py`, `
 ## Authors
 
 PES University — UDP-Based Service Discovery System with SDN
+
+
+---
+
+## One-command demo launcher
+
+For the main integrated UDP + SDN demonstration, you can now start the C programs,
+OS-Ken controller, Mininet topology, registry, and both service agents with one command.
+Run it from the repository root:
+
+```bash
+sudo env OSKEN_PYTHON="$HOME/osken-env/bin/python" python3 demo.py
+```
+
+The script compiles the C programs, starts the controller and Mininet network,
+launches the registry in h1 and the HTTP/FTP agents in h2/h3, then opens the
+Mininet CLI. At the `mininet>` prompt, run:
+
+```text
+h4 ./client HTTP
+h4 ./client FTP
+pingall
+link s2 s3 down
+link s2 s3 up
+```
+
+Use `exit` to stop the Mininet network and the processes started by the script.
+Component logs are written to `demo-logs/`. If Mininet reports stale state after
+an interrupted run, execute `sudo mn -c`.
+
+**Prerequisites:** Mininet and Open vSwitch must be installed, and OS-Ken must be
+available in `~/osken-env`. If your OS-Ken virtual environment is elsewhere,
+replace the path in `OSKEN_PYTHON`. This launcher runs the main integrated
+implementation in `member2/`; it does not launch every archived/experimental
+backup controller and topology simultaneously.
