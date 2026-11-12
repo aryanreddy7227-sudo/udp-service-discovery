@@ -214,32 +214,47 @@ cd ~/udp-service-discovery
 
 Run these commands from the project root, `~/udp-service-discovery`:
 
-Build all four C programs from the project root with:
+The repository includes a root-level `Makefile` covering the C programs and the main/alternative Mininet and OS-Ken workflows.
+
+Build all four C executables:
 
 ```bash
 make
 ```
 
-This creates `registry`, `server`, `ftp_server`, and `client`. To see all available Makefile targets:
+Build and check the maintained Python topology/controller files:
+
+```bash
+make check
+```
+
+See every available target:
 
 ```bash
 make help
 ```
 
-To remove the generated executables:
+Remove generated C binaries and Python cache folders:
 
 ```bash
 make clean
 ```
 
-If you prefer manual compilation, the equivalent commands are:
+The Makefile also provides launch targets; use separate terminals because these processes must run concurrently:
 
-```bash
-gcc -Wall -Wextra -std=c11 -D_DEFAULT_SOURCE registry.c -o registry
-gcc -Wall -Wextra -std=c11 -D_DEFAULT_SOURCE server.c -o server
-gcc -Wall -Wextra -std=c11 -D_DEFAULT_SOURCE ftp_server.c -o ftp_server
-gcc -Wall -Wextra -std=c11 -D_DEFAULT_SOURCE client.c -o client
-```
+| Terminal | Command | What it starts |
+|---|---|---|
+| 1 | `make controller` | Main OS-Ken controller from `member2/` |
+| 2 | `make topology` | Main four-host/four-switch Mininet topology |
+| 3 | `make registry-run` | UDP registry inside h1 |
+| 4 | `make http` | HTTP service agent inside h2 |
+| 5 | `make ftp` | FTP service agent inside h3 |
+| 6 | `make discover SERVICE=HTTP` | Client discovery request from h4 |
+| 6 | `make discover SERVICE=FTP` | FTP discovery request from h4 |
+
+Run all commands from the repository root. Start the controller before Mininet, and start the registry before the service agents. The Makefile assumes the OS-Ken virtual environment is at `~/osken-env`; override it with `make controller OSKEN_ENV=/path/to/venv` if yours is elsewhere.
+
+Additional targets for the other topology/controller experiments are listed by `make help`.
 
 ---
 
@@ -286,7 +301,7 @@ Open another terminal:
 
 ```bash
 cd ~/udp-service-discovery
-sudo mnexec -a $(pgrep -f "mininet:h1") $HOME/udp-service-discovery/registry
+make registry-run
 ```
 
 Expected startup messages:
@@ -300,7 +315,7 @@ Expected startup messages:
 
 ```bash
 cd ~/udp-service-discovery
-sudo mnexec -a $(pgrep -f "mininet:h2") $HOME/udp-service-discovery/server
+make http
 ```
 
 The agent registers `HTTP` at `10.0.0.3:8080`, receives the registry acknowledgement, and sends heartbeats every 5 seconds.
@@ -309,7 +324,7 @@ The agent registers `HTTP` at `10.0.0.3:8080`, receives the registry acknowledge
 
 ```bash
 cd ~/udp-service-discovery
-sudo mnexec -a $(pgrep -f "mininet:h3") $HOME/udp-service-discovery/ftp_server
+make ftp
 ```
 
 The agent registers `FTP` at `10.0.0.4:2121`, receives the registry acknowledgement, and sends heartbeats every 5 seconds.
@@ -319,13 +334,13 @@ The agent registers `FTP` at `10.0.0.4:2121`, receives the registry acknowledgem
 Discover HTTP:
 
 ```bash
-sudo mnexec -a $(pgrep -f "mininet:h4") $HOME/udp-service-discovery/client HTTP
+make discover SERVICE=HTTP
 ```
 
 Discover FTP:
 
 ```bash
-sudo mnexec -a $(pgrep -f "mininet:h4") $HOME/udp-service-discovery/client FTP
+make discover SERVICE=FTP
 ```
 
 A successful response has this format:
