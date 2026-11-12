@@ -214,20 +214,32 @@ cd ~/udp-service-discovery
 
 Run these commands from the project root, `~/udp-service-discovery`:
 
-```bash
-gcc -Wall -Wextra registry.c -o registry
-gcc -Wall -Wextra server.c -o server
-gcc -Wall -Wextra ftp_server.c -o ftp_server
-gcc -Wall -Wextra client.c -o client
-```
-
-The four executables should now be present:
+Build all four C programs from the project root with:
 
 ```bash
-ls -lh registry server ftp_server client
+make
 ```
 
-If you change any C source file, compile that program again before running it.
+This creates `registry`, `server`, `ftp_server`, and `client`. To see all available Makefile targets:
+
+```bash
+make help
+```
+
+To remove the generated executables:
+
+```bash
+make clean
+```
+
+If you prefer manual compilation, the equivalent commands are:
+
+```bash
+gcc -Wall -Wextra -std=c11 -D_DEFAULT_SOURCE registry.c -o registry
+gcc -Wall -Wextra -std=c11 -D_DEFAULT_SOURCE server.c -o server
+gcc -Wall -Wextra -std=c11 -D_DEFAULT_SOURCE ftp_server.c -o ftp_server
+gcc -Wall -Wextra -std=c11 -D_DEFAULT_SOURCE client.c -o client
+```
 
 ---
 
@@ -237,8 +249,18 @@ Start the controller and Mininet before launching the service programs. Use sepa
 
 ### Terminal 1 — Start the OS-Ken SDN controller
 
+From the project root, you can use the Makefile target:
+
 ```bash
-cd ~/udp-service-discovery/member2
+make controller
+```
+
+This activates `~/osken-env` and starts the controller. Leave this terminal running.
+
+Manual equivalent:
+
+```bash
+cd member2
 source ~/osken-env/bin/activate
 python run_sdn_controller.py
 ```
@@ -250,10 +272,8 @@ Leave this terminal running. The controller listens for OpenFlow switch connecti
 Open a second terminal:
 
 ```bash
-cd ~/udp-service-discovery/member2
-CTRL_IP=$(hostname -I | awk '{print $1}')
-echo "Controller IP: $CTRL_IP"
-sudo mn --custom sdn_topology.py --topo sdnservice --controller=remote,ip=$CTRL_IP,port=6653 --switch ovsk,protocols=OpenFlow13
+cd ~/udp-service-discovery
+make topology
 ```
 
 Keep the Mininet CLI open. Wait for all four switches to connect and for the controller to print their configuration messages.
